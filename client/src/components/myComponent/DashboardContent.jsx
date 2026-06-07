@@ -36,14 +36,19 @@ const COLORS = {
   accent: "#10b981",
 };
 
+const CURRENT_LIMIT = 25;
+
+
 const MOTOR_DATA = [
-  { time: "01:39 PM", current: 15, temp: 42, vibration: 2.1, flow: 120 },
-  { time: "01:39:30", current: 18, temp: 45, vibration: 2.8, flow: 135 },
-  { time: "01:40 PM", current: 19.5, temp: 46, vibration: 2.85, flow: 137.9 },
-  { time: "01:40:30", current: 17, temp: 44, vibration: 2.4, flow: 130 },
-  { time: "01:41 PM", current: 19, temp: 47, vibration: 2.9, flow: 140 },
-  { time: "01:41:30", current: 20.2, temp: 48, vibration: 3.1, flow: 142 },
+  { time: "01:39 PM", current: 15, temp: 42, vibration: 2.1, flow: 35 },
+  { time: "01:39:30", current: 18, temp: 45, vibration: 2.8, flow: 40 },
+  { time: "01:40 PM", current: 19.5, temp: 46, vibration: 2.85, flow: 23.5 },
+  { time: "01:40:30", current: 17, temp: 44, vibration: 2.4, flow: 20 },
+  { time: "01:41 PM", current: 19, temp: 47, vibration: 2.9, flow: 10 },
+  { time: "01:41:30", current: 20.2, temp: 48, vibration: 3.1, flow: 28 },
 ];
+
+
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -153,6 +158,13 @@ const ChartCard = ({ title, legend, children }) => (
 // ─── Main Dashboard ───────────────────────────────────────────
 const DashboardContent = () => {
   const { hardwareData, chartData } = useUserDataStore();
+  
+  const [alerts, setAlerts] = useState({
+  current: false,
+  temp: false,
+  vibration: false,
+  flow: false,
+});
 
   // 1. Initialize state using the incoming 'isRunning' from the database (hardwareData)
   // This ensures the button is correct upon refresh.
@@ -196,7 +208,42 @@ const DashboardContent = () => {
   const vibVal = safeHardwareData.vibration ?? 2.85;
   const flowVal = safeHardwareData.flow ?? 137.9;
 
-  const tempWarning = tempVal >= 55;
+  const currentWarning = currentVal > CURRENT_LIMIT;
+  const tempWarning = tempVal > 50;
+  const vibrationWarning = vibVal > 50;
+  const flowWarning = flowVal > 50;
+
+useEffect(() => {
+  if (currentVal > CURRENT_LIMIT && !alerts.current) {
+    toast.error(`⚠️ High Current Alert: ${currentVal.toFixed(1)}A`);
+    setAlerts((prev) => ({ ...prev, current: true }));
+  } else if (currentVal <= CURRENT_LIMIT && alerts.current) {
+    setAlerts((prev) => ({ ...prev, current: false }));
+  }
+
+  if (tempVal > 50 && !alerts.temp) {
+    toast.error(`🌡️ High Temperature Alert: ${tempVal.toFixed(1)}°C`);
+    setAlerts((prev) => ({ ...prev, temp: true }));
+  } else if (tempVal <= 50 && alerts.temp) {
+    setAlerts((prev) => ({ ...prev, temp: false }));
+  }
+
+  if (vibVal > 50 && !alerts.vibration) {
+    toast.error(`📳 High Vibration Alert: ${vibVal.toFixed(1)}`);
+    setAlerts((prev) => ({ ...prev, vibration: true }));
+  } else if (vibVal <= 50 && alerts.vibration) {
+    setAlerts((prev) => ({ ...prev, vibration: false }));
+  }
+
+  if (flowVal > 50 && !alerts.flow) {
+    toast.error(`💧 High Flow Alert: ${flowVal.toFixed(1)} L/min`);
+    setAlerts((prev) => ({ ...prev, flow: true }));
+  } else if (flowVal <= 50 && alerts.flow) {
+    setAlerts((prev) => ({ ...prev, flow: false }));
+  }
+},[currentVal, tempVal, vibVal, flowVal]);
+
+  
 
   const handlePowerToggle = async () => {
     const newState = !isRunning;
@@ -240,65 +287,100 @@ const DashboardContent = () => {
       </div>
 
       {/* ── Warnings ── */}
-      {tempWarning && (
-        <div className="grid grid-cols-1 gap-3 mb-8">
-          <div className="bg-[#1c160a] border border-amber-900/30 p-3 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-amber-500/10 p-1.5 rounded-lg">
-                <Bell className="w-4 h-4 text-amber-500" />
-              </div>
-              <p className="text-xs font-bold text-amber-200/80 uppercase tracking-wide">
-                Temperature threshold alert ({tempVal}°C)
-              </p>
-            </div>
-            <span className="text-[10px] font-bold text-amber-600 uppercase">
-              Live
-            </span>
+      {(currentWarning ||
+  tempWarning ||
+  vibrationWarning ||
+  flowWarning) && (
+       <div className="grid grid-cols-1 gap-3 mb-8">
+      {currentWarning && (
+        <div className="bg-red-950/30 border border-red-700 p-3 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Bell className="w-4 h-4 text-red-500" />
+            <p className="text-xs font-bold text-red-300">
+             Current exceeded {CURRENT_LIMIT}A ({currentVal.toFixed(1)}A)
+            </p>
           </div>
         </div>
       )}
+
+  {tempWarning && (
+    <div className="bg-amber-950/30 border border-amber-700 p-3 rounded-xl flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Bell className="w-4 h-4 text-amber-500" />
+        <p className="text-xs font-bold text-amber-300">
+          Temperature exceeded 50°C ({tempVal.toFixed(1)}°C)
+        </p>
+      </div>
+    </div>
+  )}
+
+  {vibrationWarning && (
+    <div className="bg-purple-950/30 border border-purple-700 p-3 rounded-xl flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Bell className="w-4 h-4 text-purple-500" />
+        <p className="text-xs font-bold text-purple-300">
+          Vibration exceeded 50 ({vibVal.toFixed(1)})
+        </p>
+      </div>
+    </div>
+  )}
+
+  {flowWarning && (
+    <div className="bg-cyan-950/30 border border-cyan-700 p-3 rounded-xl flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Bell className="w-4 h-4 text-cyan-500" />
+        <p className="text-xs font-bold text-cyan-300">
+          Flow exceeded 50 ({flowVal.toFixed(1)})
+        </p>
+      </div>
+    </div>
+  )}
+</div>
+)}
+
 
       {/* ── Metric Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard
           title="Current"
           value={currentVal.toFixed(1)}
-          unit="A"
-          status="Normal"
+          status={currentWarning ? "Warning" : "Normal"}
+          statusColor={currentWarning ? "bg-red-500" : "bg-green-500"}
+          unit="A"      
           trend={2.4}
           icon={Zap}
           colorHex={COLORS.current}
-          statusColor="bg-green-500"
+         
         />
         <MetricCard
           title="Temperature"
           value={tempVal.toFixed(0)}
-          unit="°C"
+          unit="°C"     
           status={tempWarning ? "Warning" : "Normal"}
+          statusColor={tempWarning ? "bg-red-500" : "bg-green-500"}
           trend={2.4}
           icon={Thermometer}
           colorHex={COLORS.temp}
-          statusColor={tempWarning ? "bg-amber-500" : "bg-green-500"}
         />
         <MetricCard
           title="Vibration"
           value={vibVal.toFixed(2)}
           unit="mm/s"
-          status="Normal"
+          status={vibrationWarning ? "Warning" : "Normal"}
+          statusColor={vibrationWarning ? "bg-red-500" : "bg-green-500"}
           trend={0.0}
           icon={Activity}
           colorHex={COLORS.vibration}
-          statusColor="bg-green-500"
         />
         <MetricCard
           title="Flow Rate"
           value={flowVal.toFixed(1)}
           unit="L/min"
-          status="Normal"
+          status={flowWarning ? "Warning" : "Normal"}
+          statusColor={flowWarning ? "bg-red-500" : "bg-green-500"}
           trend={-1.2}
           icon={Droplets}
           colorHex={COLORS.flow}
-          statusColor="bg-green-500"
         />
       </div>
 
