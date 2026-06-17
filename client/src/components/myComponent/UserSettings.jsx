@@ -763,8 +763,9 @@ const ParameterCard = ({
   currentReading,
   warningActive,
   isLoading,
+  hasData,
 }) => {
-  const percentOfMax = value > 0 && currentReading
+  const percentOfMax = value > 0 && currentReading > 0
     ? Math.min((currentReading / value) * 100, 100)
     : 0;
 
@@ -796,7 +797,7 @@ const ParameterCard = ({
         )}
       </div>
 
-      {/* Input Field */}
+      {/* Input Field - Max Limit */}
       <div className="relative mb-4">
         <input
           type="number"
@@ -813,8 +814,8 @@ const ParameterCard = ({
         </span>
       </div>
 
-      {/* Current Reading Bar */}
-      {currentReading !== undefined && !isLoading && (
+      {/* Current Reading Bar - Only show if we have real data */}
+      {!isLoading && hasData && (
         <div className="mt-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
@@ -839,6 +840,15 @@ const ParameterCard = ({
           </div>
           <p className="text-[9px] text-gray-600 mt-1.5">
             {percentOfMax.toFixed(0)}% of max threshold
+          </p>
+        </div>
+      )}
+
+      {/* No Data Message */}
+      {!isLoading && !hasData && (
+        <div className="mt-4 py-3 text-center">
+          <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
+            No sensor data available
           </p>
         </div>
       )}
@@ -867,13 +877,6 @@ const UserSettings = () => {
   const [originalParams, setOriginalParams] = useState(null);
   const [paramsLoading, setParamsLoading] = useState(true);
   const [paramsSaving, setParamsSaving] = useState(false);
-
-  const safeHardwareData = hardwareData || {
-    current: 0,
-    temperature: 0,
-    vibration: 0,
-    flow: 0,
-  };
 
   // ─── Fetch motor params from database on mount ────────────
   useEffect(() => {
@@ -976,10 +979,20 @@ const UserSettings = () => {
     }
   };
 
-  const currentWarning = (safeHardwareData.current ?? 0) > params.current && params.current > 0;
-  const tempWarning = (safeHardwareData.temperature ?? 0) > params.temperature && params.temperature > 0;
-  const vibrationWarning = (safeHardwareData.vibration ?? 0) > params.vibration && params.vibration > 0;
-  const flowWarning = (safeHardwareData.flow ?? 0) > params.flow && params.flow > 0;
+  // ─── Sensor readings directly from hardwareData (database) ──
+  // NO hardcoded fallback values — if data doesn't exist, it's 0 or hidden
+  const sensorCurrent = hardwareData?.current ?? 0;
+  const sensorTemp = hardwareData?.temperature ?? 0;
+  const sensorVibration = hardwareData?.vibration ?? 0;
+  const sensorFlow = hardwareData?.flow ?? 0;
+
+  // Check if we have any real sensor data
+  const hasSensorData = hardwareData !== null && hardwareData !== undefined;
+
+  const currentWarning = sensorCurrent > params.current && params.current > 0;
+  const tempWarning = sensorTemp > params.temperature && params.temperature > 0;
+  const vibrationWarning = sensorVibration > params.vibration && params.vibration > 0;
+  const flowWarning = sensorFlow > params.flow && params.flow > 0;
 
   const paramConfigs = [
     {
@@ -989,8 +1002,9 @@ const UserSettings = () => {
       colorHex: COLORS.current,
       unit: "A",
       description: "Maximum allowable current draw",
-      currentReading: safeHardwareData.current ?? 0,
+      currentReading: sensorCurrent,
       warningActive: currentWarning,
+      hasData: hasSensorData && sensorCurrent > 0,
     },
     {
       key: "temperature",
@@ -999,8 +1013,9 @@ const UserSettings = () => {
       colorHex: COLORS.temp,
       unit: "°C",
       description: "Maximum operating temperature",
-      currentReading: safeHardwareData.temperature ?? 0,
+      currentReading: sensorTemp,
       warningActive: tempWarning,
+      hasData: hasSensorData && sensorTemp > 0,
     },
     {
       key: "vibration",
@@ -1009,8 +1024,9 @@ const UserSettings = () => {
       colorHex: COLORS.vibration,
       unit: "mm/s",
       description: "Maximum vibration threshold",
-      currentReading: safeHardwareData.vibration ?? 0,
+      currentReading: sensorVibration,
       warningActive: vibrationWarning,
+      hasData: hasSensorData && sensorVibration > 0,
     },
     {
       key: "flow",
@@ -1019,8 +1035,9 @@ const UserSettings = () => {
       colorHex: COLORS.flow,
       unit: "L/min",
       description: "Maximum flow rate threshold",
-      currentReading: safeHardwareData.flow ?? 0,
+      currentReading: sensorFlow,
       warningActive: flowWarning,
+      hasData: hasSensorData && sensorFlow > 0,
     },
   ];
 
@@ -1215,6 +1232,7 @@ const UserSettings = () => {
                   currentReading={config.currentReading}
                   warningActive={config.warningActive}
                   isLoading={paramsLoading}
+                  hasData={config.hasData}
                 />
               ))}
             </div>
