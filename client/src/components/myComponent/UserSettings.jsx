@@ -848,7 +848,7 @@ const ParameterCard = ({
       {!isLoading && !hasData && (
         <div className="mt-4 py-3 text-center">
           <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
-            Waiting for sensor data...
+            No sensor data available
           </p>
         </div>
       )}
@@ -858,7 +858,8 @@ const ParameterCard = ({
 
 // ─── Main Settings Page ─────────────────────────────────────
 const UserSettings = () => {
-  const { userData } = useUserDataStore(); // Keeping this for user profile info
+  // Assuming useUserDataStore provides a setter or update method for hardware data
+  const { userData, hardwareData, setHardwareData } = useUserDataStore();
 
   // ─── User Profile State ───────────────────────────────────
   const [formData, setFormData] = useState({
@@ -867,7 +868,7 @@ const UserSettings = () => {
   });
   const [userError, setUserError] = useState("");
 
-  // ─── Motor Parameters (Settings) State ────────────────────
+  // ─── Motor Parameters State ───────────────────────────────
   const [params, setParams] = useState({
     current: 0,
     temperature: 0,
@@ -878,16 +879,7 @@ const UserSettings = () => {
   const [paramsLoading, setParamsLoading] = useState(true);
   const [paramsSaving, setParamsSaving] = useState(false);
 
-  // ─── LIVE SENSOR READINGS State (New) ─────────────────────
-  const [liveSensorData, setLiveSensorData] = useState({
-    current: 0,
-    temperature: 0,
-    vibration: 0,
-    flow: 0,
-  });
-  const [sensorLoading, setSensorLoading] = useState(true);
-
-  // ─── Fetch motor params (SETTINGS) on mount ───────────────
+  // ─── Fetch motor max thresholds from database on mount ────
   useEffect(() => {
     const fetchParams = async () => {
       try {
@@ -916,38 +908,26 @@ const UserSettings = () => {
     fetchParams();
   }, []);
 
-  // ─── Fetch LIVE Sensor Readings (Polling) ─────────────────
+  // ─── Live Database Polling for Hardware Sensor Readings ───
   useEffect(() => {
     const fetchLiveReadings = async () => {
       try {
-        // ⚠️ IMPORTANT: Replace '/meter/readings' with your actual live data endpoint
-        // This endpoint should return: { current: 12.5, temperature: 45, ... }
-        const response = await api.get("/meter/readings"); 
-        const data = response.data?.data || response.data;
-
-        if (data) {
-          setLiveSensorData({
-            current: Number(data.current) || 0,
-            temperature: Number(data.temperature) || 0,
-            vibration: Number(data.vibration) || 0,
-            flow: Number(data.flow) || 0,
-          });
-          setSensorLoading(false);
+        // Fetch real-time hardware matrix streaming straight from your database
+        const response = await api.get("/meter/live-status"); 
+        if (response.data?.data && typeof setHardwareData === "function") {
+          setHardwareData(response.data.data);
         }
       } catch (error) {
-        console.error("Error fetching live sensor data:", error);
-        // We don't toast error here to avoid spamming the user during polling
+        console.error("Failed to stream live metrics from database:", error);
       }
     };
 
-    // Initial fetch
-    fetchLiveReadings();
+    // Poll your dynamic metrics every 3 seconds
+    const interval = setInterval(fetchLiveReadings, 3000);
+    fetchLiveReadings(); // Run instantly on mount
 
-    // Poll every 3 seconds
-    const intervalId = setInterval(fetchLiveReadings, 3000);
-
-    return () => clearInterval(intervalId);
-  }, []);
+    return () => clearInterval(interval);
+  }, [setHardwareData]);
 
   const paramsChanged = originalParams !== null &&
     JSON.stringify(params) !== JSON.stringify(originalParams);
@@ -983,6 +963,10 @@ const UserSettings = () => {
 
       if (response.status === 200) {
         setUserError("");
+        setFormData({
+          fullName: "",
+          email: "",
+        });
         toast.success("User information updated successfully");
       } else {
         toast.error("Failed to update user information");
@@ -992,7 +976,7 @@ const UserSettings = () => {
     }
   };
 
-  // ─── Motor Parameter Handlers ─────────────────────────────
+  // ─── Motor Parameter Handlers ───────────────────────────────
   const handleParamChange = (key, value) => {
     setParams((prev) => ({ ...prev, [key]: value }));
   };
@@ -1017,18 +1001,14 @@ const UserSettings = () => {
     }
   };
 
-  // ─── Use LIVE DATA from state instead of store ─────────────
-  const sensorCurrent = liveSensorData.current;
-  const sensorTemp = liveSensorData.temperature;
-  const sensorVibration = liveSensorData.vibration;
-  const sensorFlow = liveSensorData.flow;
+  // ─── Sensor readings dynamically evaluated from database state ──
+  const sensorCurrent = hardwareData?.current ?? 0;
+  const sensorTemp = hardwareData?.temperature ?? 0;
+  const sensorVibration = hardwareData?.vibration ?? 0;
+  const sensorFlow = hardwareData?.flow ?? 0;
 
-  // Check if we have any real sensor data (not zero)
-  const hasSensorData = 
-    sensorCurrent > 0 || 
-    sensorTemp > 0 || 
-    sensorVibration > 0 || 
-    sensorFlow > 0;
+  // Check if store state contains valid data
+  const hasSensorData = hardwareData !== null && hardwareData !== undefined;
 
   const currentWarning = sensorCurrent > params.current && params.current > 0;
   const tempWarning = sensorTemp > params.temperature && params.temperature > 0;
@@ -1118,9 +1098,7 @@ const UserSettings = () => {
         <span className="text-gray-400">Settings</span>
       </div>
 
-      {/* ════════════════════════════════════════════════════════ */}
       {/* ── SECTION 1: Account Settings ── */}
-      {/* ════════════════════════════════════════════════════════ */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 rounded-lg bg-blue-500/10">
@@ -1140,6 +1118,7 @@ const UserSettings = () => {
           onSubmit={handleUserSubmit}
           className={`${COLORS.card} border ${COLORS.border} rounded-2xl p-6 space-y-5 shadow-2xl max-w-md`}
         >
+          {/* Full Name Field */}
           <div>
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
               Full Name
@@ -1161,6 +1140,7 @@ const UserSettings = () => {
             </div>
           </div>
 
+          {/* Email Field */}
           <div>
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
               Email Address
@@ -1181,6 +1161,7 @@ const UserSettings = () => {
               />
             </div>
 
+            {/* Error State */}
             {userError && (
               <div className="flex items-center gap-1.5 mt-2.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
@@ -1191,6 +1172,7 @@ const UserSettings = () => {
             )}
           </div>
 
+          {/* Submit Button */}
           <button
             type="submit"
             className="w-full flex items-center justify-center gap-2.5 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-[#10b981] hover:bg-[#10b981]/90 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] mt-2"
@@ -1201,9 +1183,7 @@ const UserSettings = () => {
         </form>
       </div>
 
-      {/* ════════════════════════════════════════════════════════ */}
       {/* ── SECTION 2: Motor Max Parameters ── */}
-      {/* ════════════════════════════════════════════════════════ */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 rounded-lg bg-amber-500/10">
@@ -1268,7 +1248,7 @@ const UserSettings = () => {
                   description={config.description}
                   currentReading={config.currentReading}
                   warningActive={config.warningActive}
-                  isLoading={paramsLoading || sensorLoading}
+                  isLoading={paramsLoading}
                   hasData={config.hasData}
                 />
               ))}
@@ -1279,7 +1259,7 @@ const UserSettings = () => {
               className={`${COLORS.card} border ${COLORS.border} rounded-2xl p-6 mb-6`}
             >
               <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">
-                Live Sensor Data
+                Parameter Summary
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {paramConfigs.map((config) => (
@@ -1288,13 +1268,13 @@ const UserSettings = () => {
                       className="text-2xl font-bold block"
                       style={{ color: config.colorHex }}
                     >
-                      {config.currentReading.toFixed(1)}
+                      {params[config.key]}
                       <span className="text-xs text-gray-600 ml-1">
                         {config.unit}
                       </span>
                     </span>
                     <span className="text-[9px] font-bold text-gray-600 uppercase tracking-wider mt-1 block">
-                      Live {config.label}
+                      {config.label}
                     </span>
                   </div>
                 ))}
@@ -1334,7 +1314,7 @@ const UserSettings = () => {
         )}
       </div>
 
-      {/* ── Footer ── */}
+      {/* Footer */}
       <div className="mt-12 pt-6 border-t border-gray-800/50">
         <p className="text-[10px] text-gray-600 font-bold uppercase tracking-wider">
           Account changes update your profile. Motor parameters are saved directly to the database.
