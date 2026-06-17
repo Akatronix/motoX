@@ -44,7 +44,7 @@ async function updateMaxParams(req, res){
       limits.flow = flow;
     }
 
-    const motor = await Motor.findOne({ userId: req.user._id });
+    const motor = await Motor.findOne({ userId: req.user.userId });
     if (!motor) {
       return res.status(404).json({
         success: false,
