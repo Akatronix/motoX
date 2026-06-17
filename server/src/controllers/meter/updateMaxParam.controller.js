@@ -1,8 +1,8 @@
 const Motor = require("../../models/meter/meter.model");
-const User = require("../../models/user/user.model");
 
 
-const updateMaxParams = async (req, res) => {
+
+async function updateMaxParams(req, res) => {
   try {
     const { current, temperature, vibration, flow } = req.body;
 
