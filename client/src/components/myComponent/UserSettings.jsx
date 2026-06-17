@@ -1270,13 +1270,13 @@ const UserSettings = () => {
                 {paramsSaving ? "Saving..." : "Save Parameters"}
               </button>
 
-              <button
+              {/* <button
                 onClick={handleParamsReset}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider bg-gray-800 hover:bg-gray-700 text-gray-400 transition-all duration-300"
               >
                 <RotateCcw className="w-4 h-4" />
                 Reset to Default
-              </button>
+              </button> */}
 
               {paramsChanged && (
                 <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider animate-pulse">
