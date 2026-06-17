@@ -2,7 +2,7 @@ const Motor = require("../../models/meter/meter.model");
 
 
 
-async function updateMaxParams(req, res) => {
+async function updateMaxParams(req, res){
   try {
     const { current, temperature, vibration, flow } = req.body;
 
