@@ -76,6 +76,7 @@ const Homepage = () => {
             {activeMenu === "dashboard" && <DashboardContent />}
             {activeMenu === "history" && <HistoryContent />}
             {activeMenu === "settings" && <UserSettings />}
+             
           </div>
         </div>
 
