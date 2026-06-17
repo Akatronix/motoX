@@ -320,6 +320,7 @@ const UserSettings = () => {
     const fetchParams = async () => {
       try {
         const response = await api.get("/meter/max-params");
+        console.log(response):
         const fetched = response.data || DEFAULT_MAX_PARAMS;
         setParams(fetched);
         setOriginalParams(fetched);
