@@ -2,7 +2,7 @@ const Motor = require("../../models/meter/meter.model");
 
 async function getMaxParams(req, res){
   try {
-    const motor = await Motor.findOne({ userId: req.user._id });
+    const motor = await Motor.findOne({ userId: req.user.userId });
 
     if (!motor) {
       return res.status(404).json({
