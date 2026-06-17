@@ -912,23 +912,23 @@ const UserSettings = () => {
   }, []);
 
   // ─── Live Database Polling for Hardware Sensor Readings ───
-  useEffect(() => {
-    const fetchLiveReadings = async () => {
-      try {
-        const response = await api.get("/meter/live-status"); 
-        if (response.data?.data && typeof setHardwareData === "function") {
-          setHardwareData(response.data.data);
-        }
-      } catch (error) {
-        console.error("Failed to stream live metrics from database:", error);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchLiveReadings = async () => {
+  //     try {
+  //       const response = await api.get("/meter/live-status"); 
+  //       if (response.data?.data && typeof setHardwareData === "function") {
+  //         setHardwareData(response.data.data);
+  //       }
+  //     } catch (error) {
+  //       console.error("Failed to stream live metrics from database:", error);
+  //     }
+  //   };
 
-    const interval = setInterval(fetchLiveReadings, 3000);
-    fetchLiveReadings();
+  //   const interval = setInterval(fetchLiveReadings, 3000);
+  //   fetchLiveReadings();
 
-    return () => clearInterval(interval);
-  }, [setHardwareData]);
+  //   return () => clearInterval(interval);
+  // }, [setHardwareData]);
 
   const paramsChanged = originalParams !== null &&
     JSON.stringify(params) !== JSON.stringify(originalParams);
