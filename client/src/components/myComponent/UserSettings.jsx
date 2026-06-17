@@ -848,7 +848,7 @@ const ParameterCard = ({
       {!isLoading && !hasData && (
         <div className="mt-4 py-3 text-center">
           <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
-            No sensor data available
+            Waiting for sensor data...
           </p>
         </div>
       )}
@@ -858,7 +858,7 @@ const ParameterCard = ({
 
 // ─── Main Settings Page ─────────────────────────────────────
 const UserSettings = () => {
-  const { userData, hardwareData } = useUserDataStore();
+  const { userData } = useUserDataStore(); // Keeping this for user profile info
 
   // ─── User Profile State ───────────────────────────────────
   const [formData, setFormData] = useState({
@@ -867,7 +867,7 @@ const UserSettings = () => {
   });
   const [userError, setUserError] = useState("");
 
-  // ─── Motor Parameters State ───────────────────────────────
+  // ─── Motor Parameters (Settings) State ────────────────────
   const [params, setParams] = useState({
     current: 0,
     temperature: 0,
@@ -878,7 +878,16 @@ const UserSettings = () => {
   const [paramsLoading, setParamsLoading] = useState(true);
   const [paramsSaving, setParamsSaving] = useState(false);
 
-  // ─── Fetch motor params from database on mount ────────────
+  // ─── LIVE SENSOR READINGS State (New) ─────────────────────
+  const [liveSensorData, setLiveSensorData] = useState({
+    current: 0,
+    temperature: 0,
+    vibration: 0,
+    flow: 0,
+  });
+  const [sensorLoading, setSensorLoading] = useState(true);
+
+  // ─── Fetch motor params (SETTINGS) on mount ───────────────
   useEffect(() => {
     const fetchParams = async () => {
       try {
@@ -905,6 +914,39 @@ const UserSettings = () => {
     };
 
     fetchParams();
+  }, []);
+
+  // ─── Fetch LIVE Sensor Readings (Polling) ─────────────────
+  useEffect(() => {
+    const fetchLiveReadings = async () => {
+      try {
+        // ⚠️ IMPORTANT: Replace '/meter/readings' with your actual live data endpoint
+        // This endpoint should return: { current: 12.5, temperature: 45, ... }
+        const response = await api.get("/meter/readings"); 
+        const data = response.data?.data || response.data;
+
+        if (data) {
+          setLiveSensorData({
+            current: Number(data.current) || 0,
+            temperature: Number(data.temperature) || 0,
+            vibration: Number(data.vibration) || 0,
+            flow: Number(data.flow) || 0,
+          });
+          setSensorLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching live sensor data:", error);
+        // We don't toast error here to avoid spamming the user during polling
+      }
+    };
+
+    // Initial fetch
+    fetchLiveReadings();
+
+    // Poll every 3 seconds
+    const intervalId = setInterval(fetchLiveReadings, 3000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const paramsChanged = originalParams !== null &&
@@ -941,10 +983,6 @@ const UserSettings = () => {
 
       if (response.status === 200) {
         setUserError("");
-        setFormData({
-          fullName: "",
-          email: "",
-        });
         toast.success("User information updated successfully");
       } else {
         toast.error("Failed to update user information");
@@ -954,7 +992,7 @@ const UserSettings = () => {
     }
   };
 
-  // ─── Motor Parameter Handlers ───────────────────────────────
+  // ─── Motor Parameter Handlers ─────────────────────────────
   const handleParamChange = (key, value) => {
     setParams((prev) => ({ ...prev, [key]: value }));
   };
@@ -979,15 +1017,18 @@ const UserSettings = () => {
     }
   };
 
-  // ─── Sensor readings directly from hardwareData (database) ──
-  // NO hardcoded fallback values — if data doesn't exist, it's 0 or hidden
-  const sensorCurrent = hardwareData?.current ?? 0;
-  const sensorTemp = hardwareData?.temperature ?? 0;
-  const sensorVibration = hardwareData?.vibration ?? 0;
-  const sensorFlow = hardwareData?.flow ?? 0;
+  // ─── Use LIVE DATA from state instead of store ─────────────
+  const sensorCurrent = liveSensorData.current;
+  const sensorTemp = liveSensorData.temperature;
+  const sensorVibration = liveSensorData.vibration;
+  const sensorFlow = liveSensorData.flow;
 
-  // Check if we have any real sensor data
-  const hasSensorData = hardwareData !== null && hardwareData !== undefined;
+  // Check if we have any real sensor data (not zero)
+  const hasSensorData = 
+    sensorCurrent > 0 || 
+    sensorTemp > 0 || 
+    sensorVibration > 0 || 
+    sensorFlow > 0;
 
   const currentWarning = sensorCurrent > params.current && params.current > 0;
   const tempWarning = sensorTemp > params.temperature && params.temperature > 0;
@@ -1004,7 +1045,7 @@ const UserSettings = () => {
       description: "Maximum allowable current draw",
       currentReading: sensorCurrent,
       warningActive: currentWarning,
-      hasData: hasSensorData && sensorCurrent > 0,
+      hasData: hasSensorData,
     },
     {
       key: "temperature",
@@ -1015,7 +1056,7 @@ const UserSettings = () => {
       description: "Maximum operating temperature",
       currentReading: sensorTemp,
       warningActive: tempWarning,
-      hasData: hasSensorData && sensorTemp > 0,
+      hasData: hasSensorData,
     },
     {
       key: "vibration",
@@ -1026,7 +1067,7 @@ const UserSettings = () => {
       description: "Maximum vibration threshold",
       currentReading: sensorVibration,
       warningActive: vibrationWarning,
-      hasData: hasSensorData && sensorVibration > 0,
+      hasData: hasSensorData,
     },
     {
       key: "flow",
@@ -1037,7 +1078,7 @@ const UserSettings = () => {
       description: "Maximum flow rate threshold",
       currentReading: sensorFlow,
       warningActive: flowWarning,
-      hasData: hasSensorData && sensorFlow > 0,
+      hasData: hasSensorData,
     },
   ];
 
@@ -1099,7 +1140,6 @@ const UserSettings = () => {
           onSubmit={handleUserSubmit}
           className={`${COLORS.card} border ${COLORS.border} rounded-2xl p-6 space-y-5 shadow-2xl max-w-md`}
         >
-          {/* Full Name Field */}
           <div>
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
               Full Name
@@ -1121,7 +1161,6 @@ const UserSettings = () => {
             </div>
           </div>
 
-          {/* Email Field */}
           <div>
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">
               Email Address
@@ -1142,7 +1181,6 @@ const UserSettings = () => {
               />
             </div>
 
-            {/* Error State */}
             {userError && (
               <div className="flex items-center gap-1.5 mt-2.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
@@ -1153,7 +1191,6 @@ const UserSettings = () => {
             )}
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             className="w-full flex items-center justify-center gap-2.5 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-[#10b981] hover:bg-[#10b981]/90 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] mt-2"
@@ -1231,7 +1268,7 @@ const UserSettings = () => {
                   description={config.description}
                   currentReading={config.currentReading}
                   warningActive={config.warningActive}
-                  isLoading={paramsLoading}
+                  isLoading={paramsLoading || sensorLoading}
                   hasData={config.hasData}
                 />
               ))}
@@ -1242,7 +1279,7 @@ const UserSettings = () => {
               className={`${COLORS.card} border ${COLORS.border} rounded-2xl p-6 mb-6`}
             >
               <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">
-                Parameter Summary
+                Live Sensor Data
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {paramConfigs.map((config) => (
@@ -1251,13 +1288,13 @@ const UserSettings = () => {
                       className="text-2xl font-bold block"
                       style={{ color: config.colorHex }}
                     >
-                      {params[config.key]}
+                      {config.currentReading.toFixed(1)}
                       <span className="text-xs text-gray-600 ml-1">
                         {config.unit}
                       </span>
                     </span>
                     <span className="text-[9px] font-bold text-gray-600 uppercase tracking-wider mt-1 block">
-                      {config.label}
+                      Live {config.label}
                     </span>
                   </div>
                 ))}
