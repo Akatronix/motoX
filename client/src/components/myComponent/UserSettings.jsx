@@ -319,7 +319,7 @@ const UserSettings = () => {
   useEffect(() => {
     const fetchParams = async () => {
       try {
-        const response = await api.get("/user/settings/max-params");
+        const response = await api.get("/api/meter/max-params");
         const fetched = response.data || DEFAULT_MAX_PARAMS;
         setParams(fetched);
         setOriginalParams(fetched);
@@ -389,7 +389,7 @@ const UserSettings = () => {
   const handleParamsSave = async () => {
     setParamsSaving(true);
     try {
-      await api.post("/user/settings/max-params", params);
+      await api.post("/api/meter/max-params", params);
       setOriginalParams(params);
       toast.success("Motor max parameters saved to database");
     } catch (error) {
